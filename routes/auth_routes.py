@@ -11,6 +11,7 @@ from sqlalchemy import or_
 from fastapi import Depends, HTTPException
 from sqlalchemy.orm import Session
 from auth import get_current_user
+from fastapi import Query
 
 router = APIRouter()
 
@@ -133,10 +134,21 @@ def reset_password(data: ResetPasswordSchema, db: Session = Depends(get_db)):
 # ================= LIST USERS (PAGINATION) =================
 @router.get("/users")
 def list_users(
+    page: int = Query(1, ge=1),
+    limit: int = Query(10, ge=1),
     db: Session = Depends(get_db),
     current_user: str = Depends(get_current_user)
 ):
-    return db.query(User).all()
+    offset = (page - 1) * limit
+
+    users = (
+        db.query(User)
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+
+    return users
 
 
 # ================= UPDATE USER =================
@@ -197,3 +209,4 @@ def delete_user(
     db.commit()
 
     return {"message": "User deleted successfully"}
+
