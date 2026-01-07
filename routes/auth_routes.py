@@ -32,22 +32,17 @@ def get_db():
 @router.post("/signup")
 def signup(user: SignupSchema, db: Session = Depends(get_db)):
 
-    # Check email separately
+    # Duplicate checks
     if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Email already registered"
-        )
+        raise HTTPException(status_code=400, detail="Email already registered")
 
-    # Check username separately
     if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(
-            status_code=400,
-            detail="Username already registered"
-        )
+        raise HTTPException(status_code=400, detail="Username already registered")
 
+    # Hash password
     hashed = hash_password(user.password)
 
+    # Create user
     new_user = User(
         username=user.username,
         first_name=user.first_name,
@@ -58,9 +53,17 @@ def signup(user: SignupSchema, db: Session = Depends(get_db)):
 
     db.add(new_user)
     db.commit()
-    db.refresh(new_user)
+    db.refresh(new_user)   # ✅ important
+
+    # ✅ SEND WELCOME EMAIL AFTER COMMIT
+    send_email(
+        user.email,
+        "Welcome to the Platform",
+        f"Hi {user.first_name},\n\nWelcome to our platform 🎉\nYour account has been created successfully."
+    )
 
     return {"message": "Signup successful"}
+
 
 
 # ================= LOGIN =================
