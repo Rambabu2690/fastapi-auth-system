@@ -124,12 +124,21 @@ def list_users(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
 @router.put("/users/{user_id}")
 def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.id == user_id).first()
-
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
     allowed_fields = ["username", "first_name", "last_name"]
     updated = False
+
+    # Username uniqueness check
+    if "username" in data:
+        existing_user = (
+            db.query(User)
+            .filter(User.username == data["username"], User.id != user_id)
+            .first()
+        )
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username already exists")
 
     for field in allowed_fields:
         if field in data and getattr(user, field) != data[field]:
