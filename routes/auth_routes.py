@@ -68,9 +68,13 @@ def login(credentials: dict, db: Session = Depends(get_db)):
 
 # ================= FORGOT PASSWORD =================
 @router.post("/forgot-password")
-def forgot_password(email: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == email).first()
+def forgot_password(data: dict, db: Session = Depends(get_db)):
+    email = data.get("email")
 
+    if not email:
+        raise HTTPException(status_code=400, detail="Email is required")
+
+    user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -124,14 +128,16 @@ def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
+    allowed_fields = ["username", "first_name", "last_name"]
     updated = False
-    for key, value in data.items():
-        if getattr(user, key) != value:
-            setattr(user, key, value)
+
+    for field in allowed_fields:
+        if field in data and getattr(user, field) != data[field]:
+            setattr(user, field, data[field])
             updated = True
 
     if not updated:
         return {"message": "No changes detected"}
 
     db.commit()
-    return {"message": "User updated"}
+    return {"message": "User updated successfully"}

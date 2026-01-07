@@ -55,10 +55,13 @@ Body (JSON):
 }
 
 FORGOT PASSWORD (REGISTERED EMAIL)
-POST http://127.0.0.1:8000/api/auth/forgot-password?email=user01@gmail.com
+POST http://127.0.0.1:8000/api/auth/forgot-password
+{
+  "email": "pranayv@gmail.com"
+}
 
 FORGOT PASSWORD (UNREGISTERED EMAIL)
-POST http://127.0.0.1:8000/api/auth/forgot-password?email=unknown@gmail.com
+POST http://127.0.0.1:8000/api/auth/forgot-password
 
 RESET PASSWORD (VALID OTP)
 POST http://127.0.0.1:8000/api/auth/reset-password
@@ -115,9 +118,11 @@ Authorization: Bearer <ACCESS_TOKEN>
 
 Body (JSON):
 {
-"first_name": "Updated",
-"last_name": "User"
+  "username": "ram_updated",
+  "first_name": "Ram",
+  "last_name": "Updated"
 }
+
 
 UPDATE USER (INVALID ID)
 PUT http://127.0.0.1:8000/api/auth/users/999

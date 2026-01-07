@@ -7,7 +7,7 @@ PASSWORD = "bumqsvkjwablixid"
 def send_email(to, subject, content):
     msg = EmailMessage()
     msg["From"] = EMAIL
-    msg["To"] = to
+    msg["To"] = EMAIL
     msg["Subject"] = subject
     msg.set_content(content)
 
