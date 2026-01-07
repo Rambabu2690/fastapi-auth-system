@@ -1,0 +1,137 @@
+SIGNUP API
+POST http://127.0.0.1:8000/api/auth/signup
+
+Body (JSON):
+{
+"username": "user01",
+"first_name": "User",
+"last_name": "One",
+"email": "user01@gmail.com
+",
+"password": "test123"
+}
+
+SIGNUP (DUPLICATE EMAIL)
+POST http://127.0.0.1:8000/api/auth/signup
+
+Body (JSON):
+{
+"username": "user01",
+"first_name": "User",
+"last_name": "One",
+"email": "user01@gmail.com
+",
+"password": "test123"
+}
+
+LOGIN API
+POST http://127.0.0.1:8000/api/auth/login
+
+Body (JSON):
+{
+"email": "user01@gmail.com
+",
+"password": "test123"
+}
+
+LOGIN (WRONG PASSWORD)
+POST http://127.0.0.1:8000/api/auth/login
+
+Body (JSON):
+{
+"email": "user01@gmail.com
+",
+"password": "wrongpass"
+}
+
+LOGIN (INVALID EMAIL)
+POST http://127.0.0.1:8000/api/auth/login
+
+Body (JSON):
+{
+"email": "unknown@gmail.com
+",
+"password": "test123"
+}
+
+FORGOT PASSWORD (REGISTERED EMAIL)
+POST http://127.0.0.1:8000/api/auth/forgot-password?email=user01@gmail.com
+
+FORGOT PASSWORD (UNREGISTERED EMAIL)
+POST http://127.0.0.1:8000/api/auth/forgot-password?email=unknown@gmail.com
+
+RESET PASSWORD (VALID OTP)
+POST http://127.0.0.1:8000/api/auth/reset-password
+
+Body (JSON):
+{
+"email": "user01@gmail.com
+",
+"otp": "123456",
+"new_password": "newpass123"
+}
+
+RESET PASSWORD (WRONG OTP)
+POST http://127.0.0.1:8000/api/auth/reset-password
+
+Body (JSON):
+{
+"email": "user01@gmail.com
+",
+"otp": "000000",
+"new_password": "newpass123"
+}
+
+LOGIN WITH NEW PASSWORD
+POST http://127.0.0.1:8000/api/auth/login
+
+Body (JSON):
+{
+"email": "user01@gmail.com
+",
+"password": "newpass123"
+}
+
+LIST USERS (WITH TOKEN)
+GET http://127.0.0.1:8000/api/auth/users?page=1&limit=3
+
+Headers:
+Authorization: Bearer <ACCESS_TOKEN>
+
+LIST USERS (WITHOUT TOKEN)
+GET http://127.0.0.1:8000/api/auth/users
+
+LIST USERS (EMPTY PAGE)
+GET http://127.0.0.1:8000/api/auth/users?page=10&limit=5
+
+Headers:
+Authorization: Bearer <ACCESS_TOKEN>
+
+UPDATE USER (VALID ID)
+PUT http://127.0.0.1:8000/api/auth/users/1
+
+Headers:
+Authorization: Bearer <ACCESS_TOKEN>
+
+Body (JSON):
+{
+"first_name": "Updated",
+"last_name": "User"
+}
+
+UPDATE USER (INVALID ID)
+PUT http://127.0.0.1:8000/api/auth/users/999
+
+Headers:
+Authorization: Bearer <ACCESS_TOKEN>
+
+Body (JSON):
+{
+"first_name": "Test"
+}
+
+UPDATE USER (NO BODY)
+PUT http://127.0.0.1:8000/api/auth/users/1
+
+Headers:
+Authorization: Bearer <ACCESS_TOKEN>
