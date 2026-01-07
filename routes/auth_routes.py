@@ -1,13 +1,16 @@
 import random
 from datetime import datetime, timedelta
-
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-
+from schemas import SignupSchema, LoginSchema, ResetPasswordSchema, ForgotPasswordSchema, UpdateUserSchema
 from database import SessionLocal
 from models import User
 from auth import hash_password, verify_password, create_token
 from email_utils import send_email
+from sqlalchemy import or_
+from fastapi import Depends, HTTPException
+from sqlalchemy.orm import Session
+from auth import get_current_user
 
 router = APIRouter()
 
@@ -27,54 +30,62 @@ def get_db():
 
 # ================= SIGNUP =================
 @router.post("/signup")
-def signup(user: dict, db: Session = Depends(get_db)):
-    existing_user = db.query(User).filter(User.email == user["email"]).first()
-    if existing_user:
-        raise HTTPException(status_code=400, detail="Email already registered")
+def signup(user: SignupSchema, db: Session = Depends(get_db)):
 
-    hashed = hash_password(user["password"])
+    # Check email separately
+    if db.query(User).filter(User.email == user.email).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Email already registered"
+        )
+
+    # Check username separately
+    if db.query(User).filter(User.username == user.username).first():
+        raise HTTPException(
+            status_code=400,
+            detail="Username already registered"
+        )
+
+    hashed = hash_password(user.password)
 
     new_user = User(
-        username=user["username"],
-        first_name=user["first_name"],
-        last_name=user["last_name"],
-        email=user["email"],
+        username=user.username,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        email=user.email,
         password=hashed
     )
 
     db.add(new_user)
     db.commit()
-
-    send_email(
-        user["email"],
-        "Welcome!",
-        "Welcome to our platform 🎉"
-    )
+    db.refresh(new_user)
 
     return {"message": "Signup successful"}
 
 
 # ================= LOGIN =================
 @router.post("/login")
-def login(credentials: dict, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == credentials["email"]).first()
+def login(credentials: LoginSchema, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == credentials.email).first()
 
-    if not user or not verify_password(credentials["password"], user.password):
+    if not user or not verify_password(credentials.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_token(user.email)
-    return {"access_token": token}
+    return {
+        "access_token": token,
+        "token_type": "bearer"
+    }
 
 
 # ================= FORGOT PASSWORD =================
+from datetime import datetime, timedelta
+import random
+
 @router.post("/forgot-password")
-def forgot_password(data: dict, db: Session = Depends(get_db)):
-    email = data.get("email")
+def forgot_password(data: ForgotPasswordSchema, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
 
-    if not email:
-        raise HTTPException(status_code=400, detail="Email is required")
-
-    user = db.query(User).filter(User.email == email).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
@@ -83,70 +94,103 @@ def forgot_password(data: dict, db: Session = Depends(get_db)):
     user.otp_expiry = datetime.utcnow() + timedelta(minutes=5)
 
     db.commit()
+    db.refresh(user)
 
     send_email(
-        email,
+        data.email,
         "OTP Verification",
         f"Your OTP is {otp}. It expires in 5 minutes."
     )
 
-    return {"message": "OTP sent"}
+    return {"message": "OTP sent successfully"}
+
 
 
 # ================= RESET PASSWORD =================
 @router.post("/reset-password")
-def reset_password(data: dict, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == data["email"]).first()
+def reset_password(data: ResetPasswordSchema, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == data.email).first()
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    if user.otp != data["otp"] or datetime.utcnow() > user.otp_expiry:
+    if user.otp != data.otp or datetime.utcnow() > user.otp_expiry:
         raise HTTPException(status_code=400, detail="Invalid or expired OTP")
 
-    user.password = hash_password(data["new_password"])
+    user.password = hash_password(data.new_password)
     user.otp = None
     user.otp_expiry = None
 
     db.commit()
+    db.refresh(user)
+
     return {"message": "Password updated successfully"}
 
 
 # ================= LIST USERS (PAGINATION) =================
 @router.get("/users")
-def list_users(page: int = 1, limit: int = 10, db: Session = Depends(get_db)):
-    offset = (page - 1) * limit
-    users = db.query(User).offset(offset).limit(limit).all()
-    return users
+def list_users(
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)
+):
+    return db.query(User).all()
 
 
 # ================= UPDATE USER =================
 @router.put("/users/{user_id}")
-def update_user(user_id: int, data: dict, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    data: UpdateUserSchema,
+    db: Session = Depends(get_db)
+):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    allowed_fields = ["username", "first_name", "last_name"]
-    updated = False
-
     # Username uniqueness check
-    if "username" in data:
+    if data.username:
         existing_user = (
             db.query(User)
-            .filter(User.username == data["username"], User.id != user_id)
+            .filter(
+                User.username == data.username,
+                User.id != user_id
+            )
             .first()
         )
         if existing_user:
-            raise HTTPException(status_code=400, detail="Username already exists")
+            raise HTTPException(
+                status_code=400,
+                detail="Username already exists"
+            )
 
-    for field in allowed_fields:
-        if field in data and getattr(user, field) != data[field]:
-            setattr(user, field, data[field])
+    updated = False
+
+    for field in ["username", "first_name", "last_name"]:
+        value = getattr(data, field)
+        if value is not None and getattr(user, field) != value:
+            setattr(user, field, value)
             updated = True
 
     if not updated:
         return {"message": "No changes detected"}
 
     db.commit()
+    db.refresh(user)
+
     return {"message": "User updated successfully"}
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: str = Depends(get_current_user)  # JWT protected
+):
+    user = db.query(User).filter(User.id == user_id).first()
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    db.delete(user)
+    db.commit()
+
+    return {"message": "User deleted successfully"}
